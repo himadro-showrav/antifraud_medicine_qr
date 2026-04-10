@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', path='/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', path='/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', path='/favicon-16x16.png') }}">
+    <link rel="manifest" href="{{ url_for('static', path='/site.webmanifest') }}">
+    <meta name="msapplication-TileColor" content="#da532c">
+    <meta name="theme-color" content="#0a2b3f">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Secure Medicine Trace QR</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
+      crossorigin="anonymous"
+    />
+    <link href="{{ url_for('static', path='/styles.css') }}?v=20260404-1" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.5/babel.min.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel" data-presets="env,react">
+      (() => {
+        const github = "{{ url_for('static', path='/github.svg') }}";
+        const DECODE = "DECODE";
+        const ENCODE = "ENCODE";
+        const UPLOAD_METHOD = "UPLOAD";
+        const CAMERA_METHOD = "CAMERA";
+        const eyeOpened = (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            fill="currentColor"
+            className="bi bi-eye"
+            viewBox="0 0 16 16"
+          >
+            <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z" />
+            <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0" />
+          </svg>
+        );
+
+        const eyeClosed = (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            fill="currentColor"
+            className="bi bi-eye-slash"
+            viewBox="0 0 16 16"
+          >
+            <path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7.028 7.028 0 0 0-2.79.588l.77.771A5.944 5.944 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.134 13.134 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755-.165.165-.337.328-.517.486z" />
+            <path d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829" />
+            <path d="M3.35 5.47c-.18.16-.353.322-.518.487A13.134 13.134 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7.029 7.029 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12-.708.708" />
+          </svg>
+        );
+
+        function placeholderImage(message = "Generate QRCode") {
+          return `https://placehold.co/300x300?text=${message}`;
+        }
+
+        function drawLine(canvas, begin, end, color) {
+          canvas.beginPath();
+          canvas.moveTo(begin.x, begin.y);
+          canvas.lineTo(end.x, end.y);
+          canvas.lineWidth = 4;
+          canvas.strokeStyle = color;
+          canvas.stroke();
+        }
+
+        function tick(video, canvasElement, onCode) {
+          return () => {
+            const canvas = canvasElement.getContext("2d");
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+              canvasElement.hidden = false;
+
+              canvasElement.height = 249;
+              canvasElement.width = 320;
+              canvas.drawImage(
+                video,
+                0,
+                0,
+                canvasElement.width,
+                canvasElement.height
+              );
+              var imageData = canvas.getImageData(
+                0,
+                0,
+                canvasElement.width,
+                canvasElement.height
+              );
+              var code = jsQR(
+                imageData.data,
+                imageData.width,
+                imageData.height,
+                {
+                  inversionAttempts: "dontInvert",
+                }
+              );
+              if (code) {
+                drawLine(
+                  canvas,
+                  code.location.topLeftCorner,
+                  code.location.topRightCorner,
+                  "#FF3B58"
+                );
+                drawLine(
+                  canvas,
+                  code.location.topRightCorner,
+                  code.location.bottomRightCorner,
+                  "#FF3B58"
+                );
+                drawLine(
+                  canvas,
+                  code.location.bottomRightCorner,
+                  code.location.bottomLeftCorner,
+                  "#FF3B58"
+                );
+                drawLine(
+                  canvas,
+                  code.location.bottomLeftCorner,
+                  code.location.topLeftCorner,
+                  "#FF3B58"
+                );
+
+                if (code.data) onCode(code.data);
+              }
+            }
+            requestAnimationFrame(tick(video, canvasElement, onCode));
+          };
+        }
+
+        function PasswordField(props) {
+          const [open, setOpen] = React.useState(false);
+
+          const toggleOpen = () => setOpen((prev) => !prev);
+
+          return (
+            <div>
+              <label for="key" className="form-label">
+                Key Code
+              </label>
+              <div className="input-group mb-3">
+                <input
+                  type={open ? "text" : "password"}
+                  className="form-control"
+                  placeholder="Password Key"
+                  {...props}
+                />
+                <span onClick={toggleOpen} className="input-group-text">
+                  {open ? eyeOpened : eyeClosed}
+                </span>
+              </div>
+            </div>
+          );
+        }
+
+        const HighlightedJSON = ({ json }) => {
+          const highlightedJSON = (jsonObj) =>
+            Object.keys(jsonObj).map((key) => {
+              const value = jsonObj[key];
+              let valueType = typeof value;
+              const isSimpleValue =
+                ["string", "number", "boolean"].includes(valueType) || !value;
+              if (isSimpleValue && valueType === "object") {
+                valueType = "null";
+              }
+              return (
+                <div key={key} className="line">
+                  <span className="key">{key}:</span>
+                  {isSimpleValue ? (
+                    <span className={valueType}>{`${value}`}</span>
+                  ) : (
+                    highlightedJSON(value)
+                  )}
+                </div>
+              );
+            });
+          return <div className="json">{highlightedJSON(json)}</div>;
+        };
+
+        function QRReader({ onCode }) {
+          const canvasEl = React.useRef(null);
+          const videoEl = React.useRef(null);
+          const streamRef = React.useRef(null);
+
+          React.useEffect(() => {
+            if (!videoEl.current || !canvasEl.current) {
+              return;
+            }
+
+            navigator.mediaDevices
+              .getUserMedia({ video: { facingMode: "environment" } })
+              .then((stream) => {
+                streamRef.current = stream;
+                let video = videoEl.current;
+                video.srcObject = stream;
+                video.setAttribute("playsinline", true);
+                video.play();
+                requestAnimationFrame(
+                  tick(videoEl.current, canvasEl.current, onCode)
+                );
+              });
+
+            return () => {
+              streamRef.current?.getTracks().forEach((track) => track.stop());
+            };
+          }, [videoEl, canvasEl]);
+
+          return (
+            <>
+              <video width="320" height="240" ref={videoEl} hidden />
+              <canvas ref={canvasEl} />
+            </>
+          );
+        }
+
+        function UploadCode({ onCode, onError }) {
+          const canvasEl = React.useRef(null);
+
+          const handleChange = async (event) => {
+            const [file] = event.target.files || [];
+            if (!file) {
+              return;
+            }
+
+            onError?.(null);
+            const imgUrl = URL.createObjectURL(file);
+
+            try {
+              const response = await fetch(imgUrl);
+              const fileBlob = await response.blob();
+              const bitmap = await createImageBitmap(fileBlob);
+
+              const canvas = canvasEl.current;
+              const context = canvas.getContext("2d", { willReadFrequently: true });
+              canvas.width = bitmap.width;
+              canvas.height = bitmap.height;
+              context.drawImage(bitmap, 0, 0);
+
+              const imageData = context.getImageData(0, 0, bitmap.width, bitmap.height);
+              const code = jsQR(imageData.data, bitmap.width, bitmap.height, {
+                inversionAttempts: "attemptBoth",
+              });
+
+              if (!code || !code.data) {
+                onError?.(
+                  "Could not detect a QR code from this image. Try a clearer image or generate without logo."
+                );
+                return;
+              }
+
+              onCode(code.data);
+            } catch (err) {
+              onError?.("Failed to process uploaded image for QR reading.");
+            } finally {
+              URL.revokeObjectURL(imgUrl);
+            }
+          };
+          return (
+            <div className="upload">
+              <label className="input-group-text btn btn-success" for="upload">
+                Click to Choose Image to Upload
+              </label>
+              <input
+                hidden
+                id="upload"
+                onChange={handleChange}
+                accept="image/*"
+                type="file"
+                className="form-control"
+              />
+              <canvas hidden ref={canvasEl} />
+            </div>
+          );
+        }
+
+        function GenerateCode() {
+          const [image, setImage] = React.useState(placeholderImage());
+          const [encodeError, setEncodeError] = React.useState(null);
+          const [logoContent, setLogoContent] = React.useState("");
+          const [logoFileName, setLogoFileName] = React.useState("");
+          const [companyApiKey, setCompanyApiKey] = React.useState("");
+          const [recordId, setRecordId] = React.useState(null);
+          const [recordHash, setRecordHash] = React.useState(null);
+
+          const handleLogoChange = async (event) => {
+            const [file] = event.target.files || [];
+            if (!file) {
+              setLogoContent("");
+              setLogoFileName("");
+              return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = String(reader.result || "");
+              const [, base64 = ""] = result.split(",");
+              setLogoContent(base64);
+              setLogoFileName(file.name);
+            };
+            reader.readAsDataURL(file);
+          };
+
+          const resetAll = (event) => {
+            setImage(placeholderImage());
+            setEncodeError(null);
+            setLogoContent("");
+            setLogoFileName("");
+            setCompanyApiKey("");
+            setRecordId(null);
+            setRecordHash(null);
+          };
+
+          const handleSubmit = async (event) => {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const formProps = Object.fromEntries(formData);
+            const payload = {
+              ...formProps,
+              // If logo is embedded, use stronger QR error correction for better scan reliability.
+              error_correction: logoContent ? 2 : 0,
+              logo_content: logoContent || undefined,
+              company_api_key: companyApiKey,
+            };
+            setEncodeError(null);
+            setImage(placeholderImage("Generating..."));
+            fetch("/v1/encode", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(payload),
+            })
+              .then(async (response) => {
+                const data = await response.json();
+                if (!response.ok) {
+                  throw new Error(
+                    data?.detail || data?.message || "Encode request failed"
+                  );
+                }
+                if (!data?.content) {
+                  throw new Error("Encode succeeded but image payload is missing");
+                }
+                return data;
+              })
+              .then(({ content, blockchain_record_id, blockchain_hash }) => {
+                setImage(`data:image/png;base64,${content}`);
+                setRecordId(blockchain_record_id ?? null);
+                setRecordHash(blockchain_hash ?? null);
+              })
+              .catch((error) => {
+                setEncodeError(error?.message || "Something failed, try again");
+                setImage(placeholderImage("Generation failed"));
+                setRecordId(null);
+                setRecordHash(null);
+              });
+          };
+
+          return (
+            <div className="feature">
+              <form onSubmit={handleSubmit} onReset={resetAll}>
+                <div className="mb-3">
+                  <label for="plaintext" className="form-label">
+                    QRCode Content
+                  </label>
+                  <textarea
+                    className="form-control"
+                    rows="5"
+                    id="plaintext"
+                    name="plaintext"
+                    required={true}
+                  ></textarea>
+                </div>
+                <div className="mb-3">
+                  <PasswordField name="key" id="key" required={true} />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="company-api-key">
+                    Company Encode Key
+                  </label>
+                  <input
+                    id="company-api-key"
+                    type="password"
+                    className="form-control"
+                    placeholder="Company encode API key"
+                    value={companyApiKey}
+                    onChange={(event) => setCompanyApiKey(event.target.value)}
+                    required={true}
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="manufacturer_name">
+                    Manufacturer Name
+                  </label>
+                  <input
+                    id="manufacturer_name"
+                    name="manufacturer_name"
+                    type="text"
+                    className="form-control"
+                    placeholder="Example Pharma Ltd"
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="manufacture_date">
+                    Manufacture Date
+                  </label>
+                  <input
+                    id="manufacture_date"
+                    name="manufacture_date"
+                    type="text"
+                    className="form-control"
+                    placeholder="2026-04-04"
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="expiry_date">
+                    Expiry Date
+                  </label>
+                  <input
+                    id="expiry_date"
+                    name="expiry_date"
+                    type="text"
+                    className="form-control"
+                    placeholder="2028-04-04"
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="medicine_name">
+                    Medicine Name
+                  </label>
+                  <input
+                    id="medicine_name"
+                    name="medicine_name"
+                    type="text"
+                    className="form-control"
+                    placeholder="Paracetamol 500mg"
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="serial_number">
+                    Serial Number
+                  </label>
+                  <input
+                    id="serial_number"
+                    name="serial_number"
+                    type="text"
+                    className="form-control"
+                    placeholder="BATCH-2026-0001"
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="logo-upload">
+                    Logo (optional)
+                  </label>
+                  <input
+                    id="logo-upload"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="form-control"
+                    onChange={handleLogoChange}
+                  />
+                  <small className="form-text text-muted">
+                    Keep logos simple and centered for better scan reliability.
+                  </small>
+                  {logoFileName ? (
+                    <small className="d-block mt-1 text-success">
+                      Selected: {logoFileName}
+                    </small>
+                  ) : null}
+                </div>
+                <div className="col-auto">
+                  <button type="submit" className="btn btn-primary mb-3">
+                    Generate
+                  </button>
+                  <button
+                    onClick={resetAll}
+                    type="reset"
+                    className="btn ms-3 btn-secondary mb-3"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </form>
+              <div className="qrCode">
+                <img src={image} alt="QRCode" />
+                {encodeError ? (
+                  <div className="alert alert-danger mt-2 mb-0" role="alert">
+                    {encodeError}
+                  </div>
+                ) : null}
+                {recordId ? (
+                  <div className="alert alert-info mt-2 mb-0 ledger-meta" role="alert">
+                    <strong>Ledger Record ID:</strong> {recordId}
+                    <br />
+                    <strong>Ledger Hash:</strong> {recordHash}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          );
+        }
+
+        function DecodeCode() {
+          const [method, setMethod] = React.useState(UPLOAD_METHOD);
+          const [code, setCode] = React.useState(null);
+          const [error, setError] = React.useState(null);
+          const [decrypted, setDecrypted] = React.useState(null);
+          const [internalDecodeMode, setInternalDecodeMode] = React.useState(false);
+          const [verifyMessage, setVerifyMessage] = React.useState(null);
+          const [verifySuccess, setVerifySuccess] = React.useState(null);
+          const [verifyStatus, setVerifyStatus] = React.useState(null);
+          const [verifyWarning, setVerifyWarning] = React.useState(null);
+          const [verifyMetadata, setVerifyMetadata] = React.useState(null);
+          const isUpload = method === UPLOAD_METHOD;
+          const isCamera = method === CAMERA_METHOD;
+
+          const handleCode = (code) => {
+            setError(null);
+            setCode(code);
+          };
+
+          const parseEncryptedPayload = () => {
+            if (!code) {
+              throw new Error("Read or upload a QR code first");
+            }
+            try {
+              return JSON.parse(code);
+            } catch {
+              throw new Error("Invalid QR payload format");
+            }
+          };
+
+          const handleVerify = async () => {
+            setVerifyMessage(null);
+            setVerifySuccess(null);
+            setVerifyStatus(null);
+            setVerifyWarning(null);
+            setVerifyMetadata(null);
+            try {
+              const encryptedPayload = parseEncryptedPayload();
+
+              const response = await fetch("/v1/verify", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  encrypted_data: encryptedPayload,
+                }),
+              });
+              const result = await response.json();
+              setVerifySuccess(Boolean(result.verified));
+              setVerifyStatus(result.status || null);
+              setVerifyWarning(result.warning || null);
+              setVerifyMetadata(result.public_metadata || null);
+              setVerifyMessage(
+                `${result.message || "Verification completed"}${
+                  result.scan_count ? ` (scan count: ${result.scan_count})` : ""
+                }`
+              );
+            } catch (err) {
+              setVerifySuccess(false);
+              setVerifyStatus("invalid");
+              setVerifyMessage(err.message || "Verification failed");
+              setVerifyWarning(null);
+              setVerifyMetadata(null);
+            }
+          };
+
+          const resetAll = (event) => {
+            setCode(null);
+            setDecrypted(null);
+            setError(null);
+            setInternalDecodeMode(false);
+            setVerifyMessage(null);
+            setVerifySuccess(null);
+            setVerifyStatus(null);
+            setVerifyWarning(null);
+            setVerifyMetadata(null);
+          };
+
+          const handleSubmit = async (event) => {
+            event.preventDefault();
+            if (!internalDecodeMode) {
+              setError("Public users should use Verify. Decode is for internal company users with key.");
+              return;
+            }
+
+            const formData = new FormData(event.target);
+            const formProps = Object.fromEntries(formData);
+
+            setDecrypted(null);
+            setError(null);
+            setVerifyMessage(null);
+            setVerifySuccess(null);
+            fetch("/v1/decode", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                ...formProps,
+                encrypted_data: parseEncryptedPayload(),
+              }),
+            })
+              .then((response) => response.json())
+              .then((response) => {
+                if (response.message) {
+                  return setError(response.message);
+                }
+
+                setDecrypted(response.decrypted_data);
+              });
+          };
+
+          return (
+            <div className="feature">
+              <form onSubmit={handleSubmit} onReset={resetAll}>
+                <div className="mb-3">
+                  <label for="plaintext" className="form-label">
+                    QRCode
+                  </label>
+                  <div
+                    className="btn-group form-control btn-methods"
+                    role="group"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setMethod(UPLOAD_METHOD)}
+                      className={`btn btn-primary ${
+                        isUpload ? "active" : null
+                      }`}
+                    >
+                      UPLOAD
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMethod(CAMERA_METHOD)}
+                      className={`btn btn-primary ${
+                        isCamera ? "active" : null
+                      }`}
+                    >
+                      CAMERA
+                    </button>
+                  </div>
+                  {code ? (
+                    (() => {
+                      try {
+                        return <HighlightedJSON json={JSON.parse(code)} />;
+                      } catch {
+                        return (
+                          <div className="alert alert-warning mb-0">
+                            QR content was read but payload is not valid JSON.
+                          </div>
+                        );
+                      }
+                    })()
+                  ) : (
+                    <div className="form-control">
+                      {method === CAMERA_METHOD ? (
+                        <QRReader onCode={handleCode} />
+                      ) : null}
+                      {method === UPLOAD_METHOD ? (
+                        <UploadCode onCode={handleCode} onError={setError} />
+                      ) : null}
+                    </div>
+                  )}
+                  <input type="hidden" name="encrypted_data" value={code} />
+                </div>
+                <div className="mb-3">
+                  <div className="form-check mb-2">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="internal-decode-toggle"
+                      checked={internalDecodeMode}
+                      onChange={(event) => setInternalDecodeMode(event.target.checked)}
+                    />
+                    <label className="form-check-label" htmlFor="internal-decode-toggle">
+                      Internal decode mode (company users only)
+                    </label>
+                  </div>
+                  {internalDecodeMode ? (
+                    <PasswordField name="key" id="key" required={true} />
+                  ) : (
+                    <small className="text-muted">
+                      No key required for public authenticity check. Use Verify button.
+                    </small>
+                  )}
+                </div>
+                <div className="col-auto">
+                  <button
+                    type="submit"
+                    className="btn btn-primary mb-3"
+                    disabled={!internalDecodeMode}
+                  >
+                    Decode (Internal)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleVerify}
+                    className="btn ms-3 btn-success mb-3"
+                  >
+                    Verify
+                  </button>
+                  <button
+                    onClick={resetAll}
+                    type="reset"
+                    className="btn ms-3 btn-secondary mb-3"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </form>
+              <div className="qrCode">
+                <h2>Decrypted Message</h2>
+                {decrypted ? (
+                  <div className="alert alert-success decrypted-output" role="alert">
+                    {decrypted}
+                  </div>
+                ) : (
+                  <div className="alert alert-info">
+                    Read the QRCode using camera or upload the image
+                  </div>
+                )}
+                {error ? (
+                  <div className="alert alert-danger">{error}</div>
+                ) : null}
+                {verifyMessage ? (
+                  <div
+                    className={`alert ${verifySuccess ? "alert-success" : "alert-danger"}`}
+                    role="alert"
+                  >
+                    {verifyStatus ? (
+                      <span
+                        className={`verify-badge verify-badge-${verifyStatus}`}
+                      >
+                        {verifyStatus.toUpperCase()}
+                      </span>
+                    ) : null}
+                    {verifyMessage}
+                  </div>
+                ) : null}
+                {verifyWarning ? (
+                  <div className="alert alert-warning" role="alert">
+                    {verifyWarning}
+                  </div>
+                ) : null}
+                {verifyMetadata ? (
+                  <div className="alert alert-info" role="alert">
+                    <strong>Manufacturer:</strong> {verifyMetadata.manufacturer_name}
+                    <br />
+                    <strong>Manufacture Date:</strong> {verifyMetadata.manufacture_date}
+                    <br />
+                    {verifyMetadata.expiry_date ? (
+                      <>
+                        <strong>Expiry Date:</strong> {verifyMetadata.expiry_date}
+                        <br />
+                      </>
+                    ) : null}
+                    <strong>Medicine:</strong> {verifyMetadata.medicine_name}
+                    <br />
+                    <strong>Serial Number:</strong> {verifyMetadata.serial_number}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          );
+        }
+
+        function Home() {
+          const [page, setPage] = React.useState(ENCODE);
+          const isEncode = page === ENCODE;
+          const isDecode = page === DECODE;
+          return (
+            <main>
+              <section className="hero-panel">
+                <div className="hero-copy">
+                  <div className="hero-badge">Anti-Counterfeit Medicine Ledger</div>
+                  <h1>Secure Medicine Trace QR</h1>
+                  <p>
+                    Encrypt packaging codes, and supply-chain markers with a visual style
+                    built for verification, trust, and traceability.
+                  </p>
+                </div>
+                <div className="hero-seal" aria-hidden="true">
+                  <span>VERIFY</span>
+                  <span>TRACE</span>
+                  <span>AUTHENTIC</span>
+                </div>
+              </section>
+              <ul className="nav nav-tabs">
+                <li className="nav-item">
+                  <a
+                    onClick={() => setPage(ENCODE)}
+                    className={`nav-link ${isEncode ? "active" : ""}`}
+                    href="#"
+                  >
+                    Encode
+                  </a>
+                </li>
+                <li className="nav-item">
+                  <a
+                    onClick={() => setPage(DECODE)}
+                    className={`nav-link ${isDecode ? "active" : ""}`}
+                    href="#"
+                  >
+                    Decode
+                  </a>
+                </li>
+              </ul>
+              <div className="container">
+                {isEncode ? <GenerateCode /> : null}
+                {isDecode ? <DecodeCode /> : null}
+              </div>
+              <footer className="d-flex flex-wrap justify-content-between align-items-center py-2 my-2 border-top">
+                <ul className="nav col-md-12 justify-content-end list-unstyled d-flex">
+                  <li className="ms-3">
+                    <a href="https://github.com/himadro-showrav">
+                      <img
+                        className="icon-footer"
+                        src={github}
+                        alt="Github Repo"
+                      />
+                      Github
+                    </a>
+                  </li>
+                </ul>
+                <div className="developer-credit w-100">
+                  Developed by <strong>Showrav Das</strong>, <strong>Zadid Al Lisan</strong>, and <strong>Adnan Rahman Sayeem</strong>
+                </div>
+              </footer>
+            </main>
+          );
+        }
+
+        ReactDOM.render(<Home />, document.getElementById("root"));
+      })();
+    </script>
+  </body>
+</html>

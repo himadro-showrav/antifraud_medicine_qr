@@ -1,0 +1,27 @@
+[project]
+name = "antifraud-medicine-qr"
+version = "0.1.0"
+description = "Detect and prevent counterfeit medicines using encrypted QR codes with blockchain verification"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "cryptography>=46.0.3,<47",
+    "fastapi>=0.119.0,<1",
+    "jinja2>=3.1.6,<4",
+    "pydantic-settings>=2.11.0,<3",
+    "qrcode[pil]>=8.2,<9",
+    "uvicorn[standard]>=0.37.0,<1",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pre-commit>=4.3.0",
+    "pytest-cov>=7.0.0",
+    "pytest>=8.4.2",
+]
+
+[tool.pytest.ini_options]
+minversion = "8.4"
+addopts = "-vvv --cov=antifraud_medicine_qr --cov-report=term-missing"
